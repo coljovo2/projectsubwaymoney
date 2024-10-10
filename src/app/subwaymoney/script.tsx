@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import styles from './styles.module.css'; // Assuming you have a CSS module
+import styles from './styles.module.css';
 
 interface Obstacle {
     element: HTMLDivElement;
@@ -9,7 +9,6 @@ interface Obstacle {
 
 const DodgeGame = () => {
     const [playerPosition, setPlayerPosition] = useState(0); // Player starts at leftmost column
-    const [obstacles, setObstacles] = useState<Obstacle[]>([]);
     const [score, setScore] = useState(0);
     const [isGameOver, setIsGameOver] = useState(false);
     const [speed, setSpeed] = useState(2); // Initial speed
@@ -19,6 +18,7 @@ const DodgeGame = () => {
     const gameIntervalRef = useRef<number | null>(null);
     const difficultyIntervalRef = useRef<number | null>(null);
     const lastTimeRef = useRef(0);
+    const obstaclesRef = useRef<Obstacle[]>([]); // Use ref to avoid state updates on obstacle changes
 
     // Handle player movement with arrow keys
     useEffect(() => {
@@ -56,33 +56,28 @@ const DodgeGame = () => {
         obstacleElement.style.top = '0px';
 
         gameBoardRef.current.appendChild(obstacleElement);
-        setObstacles((prevObstacles) => [
-            ...prevObstacles,
-            { element: obstacleElement, position: obstaclePosition, top: 0 }
-        ]);
+        obstaclesRef.current.push({ element: obstacleElement, position: obstaclePosition, top: 0 });
     };
 
     // Move obstacles and check for collisions
     const moveObstacles = (deltaTime: number) => {
-        setObstacles((prevObstacles) => {
-            return prevObstacles.map((obstacle, index) => {
-                const newTop = obstacle.top + speed * (deltaTime / 16);
-                obstacle.element.style.top = `${newTop}px`;
+        obstaclesRef.current.forEach((obstacle) => {
+            const newTop = obstacle.top + speed * (deltaTime / 16);
+            obstacle.element.style.top = `${newTop}px`;
 
-                // Check if obstacle has passed
-                if (newTop >= 350) {
-                    obstacle.element.remove();
-                    increaseScore(); // Increase score if the obstacle passes
-                    return null; // Remove obstacle
-                }
+            // Check if obstacle has passed
+            if (newTop >= 350) {
+                obstacle.element.remove();
+                obstaclesRef.current = obstaclesRef.current.filter((o) => o !== obstacle);
+                increaseScore(); // Increase score if the obstacle passes
+            }
 
-                // Check for collision with player
-                if (newTop >= 260 && obstacle.position === playerPosition) {
-                    endGame(); // End the game on collision
-                }
+            // Check for collision with player
+            if (newTop >= 260 && obstacle.position === playerPosition) {
+                endGame(); // End the game on collision
+            }
 
-                return { ...obstacle, top: newTop }; // Update obstacle position
-            }).filter(Boolean) as Obstacle[]; // Filter out null obstacles
+            obstacle.top = newTop; // Update obstacle position
         });
     };
 
@@ -112,7 +107,7 @@ const DodgeGame = () => {
     // Start the game
     const startGame = () => {
         setIsGameOver(false);
-        setObstacles([]);
+        obstaclesRef.current = [];
         setScore(0);
         setSpeed(2);
         setObstacleSpawnInterval(1000);
